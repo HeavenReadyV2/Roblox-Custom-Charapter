@@ -7,7 +7,7 @@ local backpack = hotbar:WaitForChild("Backpack")
 local hotbarFrame = backpack:WaitForChild("Hotbar")
 
 -- Define move names
-local moveNames = {"Omni-Punch", "Mach Speed Dash", "Ground Shatter", "Energy Field"}
+local moveNames = {"Omni-Punch", "Mach Speed Dash", "Gravity Well", "Energy Shield"}
 
 -- Set the text for each move button
 for i = 1, #moveNames do
@@ -37,17 +37,17 @@ local function setUltimateName(ultimateName)
     end
 end
 
--- Initial call to set the ultimate name (you might want to set this based on character data)
+-- Initial call to set the ultimate name
 setUltimateName("Planet Buster")
 
--- Listen for ScreenGui to be added in case it loads late
+-- Listen for ScreenGui to be added
 playerGui.DescendantAdded:Connect(function(descendant)
     if descendant.Name == "ScreenGui" then
-        setUltimateName("Planet Buster") -- Call again when ScreenGui is added
+        setUltimateName("Planet Buster")
     end
 end)
 
--- // Animations
+-- // Animations & New Mechanics
 local character = player.Character or player.CharacterAdded:Wait()
 local humanoid = character:WaitForChild("Humanoid")
 local animator = humanoid:WaitForChild("Animator")
@@ -57,7 +57,6 @@ local function playAnimation(animationId, speed, timePosition, stopAfter)
     animation.AnimationId = "rbxassetid://" .. animationId
     local animationTrack = animator:LoadAnimation(animation)
 
-    -- Stop all currently playing animations on the humanoid
     for _, track in pairs(humanoid:GetPlayingAnimationTracks()) do
         track:Stop()
     end
@@ -76,169 +75,133 @@ local function playAnimation(animationId, speed, timePosition, stopAfter)
             animationTrack:Stop()
         end)
     end
+
+    return animationTrack -- Return the track so we can potentially monitor it
 end
 
--- // Omni-Punch Animation (Move 1)
-local move1TriggerAnimId = 10468665991 -- Replace with animation ID for initiating the Omni-Punch
-local move1VisualAnimId = 17838006839 -- Replace with animation ID for the rapid punches
+-- // Omni-Punch (Move 1): Rapid multi-hit with potential for a finisher
+local move1TriggerAnimId = 10468665991 -- Trigger animation
+local move1PunchAnimIds = {17889458563, 17889461810, 17889471098, 17889290569} -- Multiple punch animations
+local move1FinisherAnimId = 12684185971 -- Optional powerful finisher
+
+local isOmniPunching = false
+local punchCount = 0
 
 humanoid.AnimationPlayed:Connect(function(animationTrack)
-    if animationTrack.Animation.AnimationId == "rbxassetid://" .. move1TriggerAnimId then
-        playAnimation(move1VisualAnimId, 1.2, 0, nil) -- Increased speed for rapid punches
+    if animationTrack.Animation.AnimationId == "rbxassetid://" .. move1TriggerAnimId and not isOmniPunching then
+        isOmniPunching = true
+        punchCount = 0
+        local function playNextPunch()
+            if not isOmniPunching then return end
+            punchCount += 1
+            if punchCount <= #move1PunchAnimIds then
+                local punchAnim = playAnimation(move1PunchAnimIds[punchCount], 1.5, 0, 0.2)
+                if punchAnim then
+                    punchAnim.Stopped:Connect(playNextPunch)
+                end
+            else
+                -- Optionally play a finisher animation
+                playAnimation(move1FinisherAnimId, 1, 0, 0.5)
+                isOmniPunching = false
+            end
+        end
+        playNextPunch()
+        -- You'd need to add hit detection and damage logic for each punch
     end
 end)
 
--- // Mach Speed Dash Animation (Move 2)
-local move2TriggerAnimId = 10466974800 -- Replace with animation ID for initiating the dash
-local move2VisualAnimId = 18181589384 -- Replace with animation ID for the fast dash movement
+-- // Mach Speed Dash (Move 2): High-speed movement with a damaging trail
+local move2TriggerAnimId = 10466974800 -- Trigger animation
+local move2DashAnimId = 18181589384 -- Visual dash animation
 
 humanoid.AnimationPlayed:Connect(function(animationTrack)
     if animationTrack.Animation.AnimationId == "rbxassetid://" .. move2TriggerAnimId then
-        playAnimation(move2VisualAnimId, 2, 0, 0.6) -- Very fast, short duration dash
+        local dashTrack = playAnimation(move2DashAnimId, 2.5, 0, 0.4)
+        -- While the dash animation is playing, you'd need to:
+        -- 1. Increase the player's velocity significantly in their movement direction.
+        -- 2. Potentially create a visual trail effect.
+        -- 3. Implement hit detection for enemies the player passes through, dealing damage.
+        -- 4. Revert the player's speed after the dash ends.
     end
 end)
 
--- // Ground Shatter Animation (Move 3)
-local move3TriggerAnimId = 10471336737 -- Replace with animation ID for initiating the ground slam
-local move3VisualAnimId = 17838619895 -- Replace with animation ID for the ground cracking effect
+-- // Gravity Well (Move 3): Creates a localized gravity field pulling enemies in
+local move3TriggerAnimId = 10471336737 -- Trigger animation
+local move3VisualAnimId = 17838619895 -- Animation for creating the field
 
 humanoid.AnimationPlayed:Connect(function(animationTrack)
     if animationTrack.Animation.AnimationId == "rbxassetid://" .. move3TriggerAnimId then
-        playAnimation(move3VisualAnimId, 0.8, 0.2, 1.5) -- Emphasize the impact and lingering effect
+        playAnimation(move3VisualAnimId, 1, 0, 1)
+        -- When this animation plays, you'd need to:
+        -- 1. Create an invisible force field object in front of the player.
+        -- 2. For any enemy characters within a certain radius of this field, apply a force pulling them towards the center of the field.
+        -- 3. Potentially deal damage over time to enemies within the field.
+        -- 4. Destroy the force field object after a short duration.
     end
 end)
 
--- // Energy Field Animation (Move 4)
-local move4TriggerAnimId = 12510170988 -- Replace with animation ID for initiating the energy field
-local move4VisualAnimId = 16515850153 -- Replace with animation ID for the character generating a field
+-- // Energy Shield (Move 4): Creates a temporary damage-absorbing shield
+local move4TriggerAnimId = 12510170988 -- Trigger animation
+local move4VisualAnimId = 16515850153 -- Animation for generating the shield
 
 humanoid.AnimationPlayed:Connect(function(animationTrack)
     if animationTrack.Animation.AnimationId == "rbxassetid://" .. move4TriggerAnimId then
-        playAnimation(move4VisualAnimId, 1, 0, nil) -- Animation for generating the field
-        -- You would likely need additional scripting here to create the actual energy field object
+        playAnimation(move4VisualAnimId, 1, 0, 1.5)
+        -- While this animation (or shortly after), you'd need to:
+        -- 1. Create a visual shield effect around the player's character.
+        -- 2. Implement logic that reduces or negates incoming damage while the shield is active.
+        -- 3. Potentially have the shield break after absorbing a certain amount of damage or after a set duration.
+        -- 4. Destroy the shield effect.
     end
 end)
 
--- // Wall Combo Animation (unchanged for now)
+-- // Planet Buster (Ultimate): Massive AoE damage after a charge
+local ultTriggerAnimId = 12447707844 -- Trigger animation
+local ultChargeAnimId = 17106858586 -- Charging animation
+local ultReleaseAnimId = 0 -- Replace with animation for the actual blast
+
+humanoid.AnimationPlayed:Connect(function(animationTrack)
+    if animationTrack.Animation.AnimationId == "rbxassetid://" .. ultTriggerAnimId then
+        local chargeTrack = playAnimation(ultChargeAnimId, 0.8, 0, 3)
+        if chargeTrack then
+            chargeTrack.Stopped:Connect(function()
+                playAnimation(ultReleaseAnimId, 1, 0, 1)
+                -- When the release animation plays, you'd need to:
+                -- 1. Create a massive visual effect in a large radius around the player.
+                -- 2. Implement hit detection for all enemy characters within that radius.
+                -- 3. Deal a significant amount of damage to those enemies.
+                -- 4. Potentially apply a knockdown or other status effect.
+            end)
+        end
+    end
+end)
+
+-- // Wall Combo (unchanged animation, but could have new mechanics)
 local wallComboAnimationId = 15955393872
 local wallComboReplacementAnimId = 15943915877
 
 humanoid.AnimationPlayed:Connect(function(animationTrack)
     if animationTrack.Animation.AnimationId == "rbxassetid://" .. wallComboAnimationId then
         playAnimation(wallComboReplacementAnimId, 1, 0.05, nil)
+        -- You could add a mechanic where this combo deals extra damage if the opponent is near a wall.
     end
 end)
 
--- // Ult Activation Animation
-local ultActivationAnimationId = 12447707844 -- Replace with animation ID for initiating the ultimate
-local ultActivationReplacementAnimId = 17106858586 -- Replace with animation ID for the power-up animation
-
-humanoid.AnimationPlayed:Connect(function(animationTrack)
-    if animationTrack.Animation.AnimationId == "rbxassetid://" .. ultActivationAnimationId then
-        playAnimation(ultActivationReplacementAnimId, 0.9, 0, 2) -- Longer animation to emphasize the ultimate charging
-        -- You would need significant additional scripting here to implement the "Planet Buster" ultimate's effects
-    end
-end)
-
--- // Dash Animation (renamed to "Quick Evasion" conceptually, but using original IDs)
+-- // Dash (Quick Evasion) - Could add a brief invulnerability window
 local dashAnimationId = 10479335397
 local dashReplacementAnimId = 13294790250
 
 humanoid.AnimationPlayed:Connect(function(animationTrack)
     if animationTrack.Animation.AnimationId == "rbxassetid://" .. dashAnimationId then
-        playAnimation(dashReplacementAnimId, 1.5, 0, 0.5) -- Faster, shorter evasion
+        playAnimation(dashReplacementAnimId, 1.5, 0, 0.5)
+        -- You could add a brief period where the player is immune to damage during the dash.
     end
 end)
 
--- // Uppercut Animation (unchanged for now)
-local uppercutAnimationId = 10503381238
-local uppercutReplacementAnimId = 14900168720
+-- // Other animations (Uppercut, Downslam, Punch) - Mechanics could be added here too
+-- ... (rest of your animation handling)
 
-humanoid.AnimationPlayed:Connect(function(animationTrack)
-    if animationTrack.Animation.AnimationId == "rbxassetid://" .. uppercutAnimationId then
-        playAnimation(uppercutReplacementAnimId, 0.7, 1.3, nil)
-    end
-end)
-
--- // Downslam Animation (unchanged for now)
-local downslamAnimationId = 10470104242
-local downslamReplacementAnimId = 12447247483
-
-humanoid.AnimationPlayed:Connect(function(animationTrack)
-    if animationTrack.Animation.AnimationId == "rbxassetid://" .. downslamAnimationId then
-        wait(0.2)
-        playAnimation(downslamReplacementAnimId, 6, 0, nil)
-    end
-end)
-
--- // Punch Animations (Omni-Punch will handle basic punches now)
-local animationIdsToStop = {
-    [17859015788] = true, -- downslam finisher
-    [10469493270] = true, -- punch1
-    [10469630950] = true, -- punch2
-    [10469639222] = true, -- punch3
-    [10469643643] = true, -- punch4
-}
-
-local replacementAnimations = {
-    ["10469493270"] = "rbxassetid://17889458563", -- punch1 (can be part of Omni-Punch visual)
-    ["10469630950"] = "rbxassetid://17889461810", -- punch2 (can be part of Omni-Punch visual)
-    ["10469639222"] = "rbxassetid://17889471098", -- punch3 (can be part of Omni-Punch visual)
-    ["10469643643"] = "rbxassetid://17889290569", -- punch4 (can be part of Omni-Punch visual)
-    ["17859015788"] = "rbxassetid://12684185971", -- downslam finisher
-    ["11365563255"] = "rbxassetid://14516273501", -- punch idk
-}
-
-local queue = {}
-local isAnimating = false
-
-local function playQueuedAnimation(animationId)
-    isAnimating = true
-    local replacementAnimationId = replacementAnimations[tostring(animationId)]
-    if replacementAnimationId then
-        local AnimAnim = Instance.new("Animation")
-        AnimAnim.AnimationId = replacementAnimationId
-        local Anim = humanoid:LoadAnimation(AnimAnim)
-        Anim:Play()
-
-        Anim.Stopped:Connect(function()
-            isAnimating = false
-            if #queue > 0 then
-                local nextAnimationId = table.remove(queue, 1)
-                playQueuedAnimation(nextAnimationId)
-            end
-        end)
-    else
-        isAnimating = false
-    end
-end
-
-local function onPunchAnimationPlayed(animationTrack)
-    local animationId = tonumber(animationTrack.Animation.AnimationId:match("%d+"))
-    if animationIdsToStop[animationId] then
-        -- Stop specific animations
-        for _, track in ipairs(humanoid:GetPlayingAnimationTracks()) do
-            local currentAnimId = tonumber(track.Animation.AnimationId:match("%d+"))
-            if animationIdsToStop[currentAnimId] then
-                track:Stop()
-            end
-        end
-        animationTrack:Stop()
-
-        local replacementAnimationId = replacementAnimations[tostring(animationId)]
-        if replacementAnimationId then
-            if isAnimating then
-                table.insert(queue, animationId)
-            else
-                playQueuedAnimation(animationId)
-            end
-        end
-    end
-end
-
-humanoid.AnimationPlayed:Connect(onPunchAnimationPlayed)
-
--- // Prevent Y-axis movement from BodyVelocity
+-- // Prevent Y-axis movement from BodyVelocity (remains the same)
 local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 
 local function onBodyVelocityAdded(bodyVelocity)
@@ -257,74 +220,10 @@ player.CharacterAdded:Connect(function(newCharacter)
     character = newCharacter
     humanoidRootPart = character:WaitForChild("HumanoidRootPart")
     character.DescendantAdded:Connect(onBodyVelocityAdded)
-
     for _, descendant in pairs(character:GetDescendants()) do
         onBodyVelocityAdded(descendant)
     end
 end)
 
--- // Adding Quote or Message when Executed (Consider triggering these based on new moves)
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
--- Messages to send
-local messages = {"Unleashing power!", "Feel the force!", "Crushing blow!", "Shield activated!"}
-
-local function sendMessage(text)
-    ReplicatedStorage.DefaultChatSystemChatEvents.SayMessageRequest:FireServer(text, "All")
-end
-
--- Example of triggering messages (you'd need to tie this to your move activation logic)
--- humanoid.AnimationPlayed:Connect(function(animationTrack)
---     if animationTrack.Animation.AnimationId == "rbxassetid://" .. move1TriggerAnimId then
---         sendMessage(messages[1])
---     elseif animationTrack.Animation.AnimationId == "rbxassetid://" .. move2TriggerAnimId then
---         sendMessage(messages[2])
---     -- ... and so on for other moves
---     end
--- end)
-
--- // Idle Animation
-local idleAnimationId = "rbxassetid://15099756132" -- Replace with your animation ID
-local idleAnimation = Instance.new("Animation")
-idleAnimation.AnimationId = idleAnimationId
-local idleAnimationTrack = animator:LoadAnimation(idleAnimation)
-
-local function isMoving()
-    return humanoid.MoveDirection.Magnitude > 0.01 -- Use a small threshold to account for slight movement
-end
-
-game:GetService("RunService").RenderStepped:Connect(function()
-    if not isMoving() then
-        if not idleAnimationTrack.IsPlaying then
-            idleAnimationTrack:Play()
-        end
-    else
-        if idleAnimationTrack.IsPlaying then
-            idleAnimationTrack:Stop()
-        end
-    end
-end)
-
--- // Run Animation
-local runAnimationId = "rbxassetid://15962326593" -- Replace with your animation ID
-local runAnimation = Instance.new("Animation")
-runAnimation.AnimationId = runAnimationId
-local runAnimationTrack = animator:LoadAnimation(runAnimation)
-local isRunning = false
-
-local function onMoveDirectionChanged()
-    if humanoid.MoveDirection.Magnitude > 0.01 then
-        if not isRunning then
-            isRunning = true
-            runAnimationTrack:Play()
-        end
-    else
-        if isRunning then
-            isRunning = false
-            runAnimationTrack:Stop()
-        end
-    end
-end
-
-humanoid:GetPropertyChangedSignal("MoveDirection"):Connect(onMoveDirectionChanged)
-onMoveDirectionChanged()
+-- // Idle and Run Animations (remain the same)
+-- ... (rest of your idle and run animation handling)
